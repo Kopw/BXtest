@@ -11,6 +11,9 @@ on:
       - "go.sum"
       - ".github/workflows/release.yml"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
