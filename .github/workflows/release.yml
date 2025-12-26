@@ -5,24 +5,13 @@ on:
   push:
     branches:
       - master
-      - dev_new
     paths:
       - "**/*.go"
       - "go.mod"
       - "go.sum"
       - ".github/workflows/release.yml"
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-      - ".github/workflows/release.yml"
-  release:
-    types: [published]
 
 jobs:
-
   build:
     strategy:
       matrix:
@@ -109,30 +98,25 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.0'
+          go-version: "1.23.0"
 
       - name: Get project dependencies
         run: |
           go mod download
-      - name: Get release version
-        if: ${{ github.event_name == 'release' }}
+      - name: Get version
         run: |
-          echo "version=$(echo $GITHUB_REF | cut -d / -f 3)" >> $GITHUB_ENV
-      - name: Get other version
-        if: ${{ github.event_name != 'release' }}
-        run: |
-          echo "version=${{ github.sha }}" >> $GITHUB_ENV
+          echo "version=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - name: Build V2bX
         run: |
           echo "version: $version"
           mkdir -p build_assets
-          GOEXPERIMENT=jsonv2 go build -v -o build_assets/V2bX -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" -trimpath -ldflags "-X 'github.com/InazumaV/V2bX/cmd.version=$version' -s -w -buildid="
+          go build -v -o build_assets/V2bX -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" -trimpath -ldflags "-X 'github.com/InazumaV/V2bX/cmd.version=$version' -s -w -buildid="
 
       - name: Build Mips softfloat V2bX
         if: matrix.goarch == 'mips' || matrix.goarch == 'mipsle'
         run: |
           echo "version: $version"
-          GOEXPERIMENT=jsonv2 GOMIPS=softfloat go build -v -o build_assets/V2bX_softfloat -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" -trimpath -ldflags "-X 'github.com/InazumaV/V2bX/cmd.version=$version' -s -w -buildid="
+          GOMIPS=softfloat go build -v -o build_assets/V2bX_softfloat -tags "sing xray hysteria2 with_quic with_grpc with_utls with_wireguard with_acme with_gvisor" -trimpath -ldflags "-X 'github.com/InazumaV/V2bX/cmd.version=$version' -s -w -buildid="
       - name: Rename Windows V2bX
         if: matrix.goos == 'windows'
         run: |
@@ -173,11 +157,58 @@ jobs:
           name: V2bX-${{ steps.get_filename.outputs.ASSET_NAME }}
           path: |
             ./V2bX-${{ steps.get_filename.outputs.ASSET_NAME }}/*
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
-        if: github.event_name == 'release'
+      - name: Upload ZIP to Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ./V2bX-${{ steps.get_filename.outputs.ASSET_NAME }}.zip*
-          tag: ${{ github.ref }}
-          file_glob: true
+          name: V2bX-${{ steps.get_filename.outputs.ASSET_NAME }}-zip
+          path: |
+            ./V2bX-${{ steps.get_filename.outputs.ASSET_NAME }}.zip
+            ./V2bX-${{ steps.get_filename.outputs.ASSET_NAME }}.zip.dgst
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          pattern: V2bX-*-zip
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release_files
+          find ./artifacts -name "*.zip" -exec cp {} ./release_files/ \;
+          find ./artifacts -name "*.dgst" -exec cp {} ./release_files/ \;
+          ls -la ./release_files/
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+
+      - name: Delete old release
+        uses: dev-drprasad/delete-older-releases@v0.3.4
+        with:
+          keep_latest: 0
+          delete_tag_pattern: auto-build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: auto-build
+          name: V2bX Auto Build
+          body: |
+            自动构建版本
+            构建时间: ${{ steps.date.outputs.date }}
+            提交: ${{ github.sha }}
+          draft: false
+          prerelease: false
+          files: ./release_files/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
