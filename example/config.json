@@ -15,15 +15,15 @@
         "Server": "time.apple.com",
         "ServerPort": 0
       },
-      "OriginalPath": "/etc/V2bX/sing_origin.json"
+      "OriginalPath": "/etc/BXtest/sing_origin.json"
     }
   ],
   "Nodes": [
     {
       "Core": "sing",
-      "ApiHost": "http://127.0.0.1",
-      "ApiKey": "test",
-      "NodeID": 33,
+      "Host": "http://127.0.0.1",
+      "Key": "test",
+      "ID": 33,
       "NodeType": "shadowsocks",
       "Timeout": 30,
       "ListenIP": "0.0.0.0",
@@ -36,8 +36,8 @@
         "CertMode": "self",
         "RejectUnknownSni": false,
         "CertDomain": "example.com",
-        "CertFile": "/etc/V2bX/fullchain.cer",
-        "KeyFile": "/etc/V2bX/cert.key",
+        "CertFile": "/etc/BXtest/fullchain.cer",
+        "KeyFile": "/etc/BXtest/cert.key",
         "Provider": "cloudflare",
         "DNSEnv": {
           "EnvName": "env1"

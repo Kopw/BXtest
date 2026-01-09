@@ -31,7 +31,7 @@ func NewXrayConfig() *XrayConfig {
 			AccessPath: "",
 			ErrorPath:  "",
 		},
-		AssetPath:          "/etc/V2bX/",
+		AssetPath:          "/etc/BXtest/",
 		DnsConfigPath:      "",
 		InboundConfigPath:  "",
 		OutboundConfigPath: "",

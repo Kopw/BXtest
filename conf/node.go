@@ -24,10 +24,10 @@ type rawNodeConfig struct {
 }
 
 type ApiConfig struct {
-	APIHost      string `json:"ApiHost"`
+	APIHost      string `json:"Host"`
 	APISendIP    string `json:"ApiSendIP"`
-	NodeID       int    `json:"NodeID"`
-	Key          string `json:"ApiKey"`
+	NodeID       int    `json:"ID"`
+	Key          string `json:"Key"`
 	NodeType     string `json:"NodeType"`
 	Timeout      int    `json:"Timeout"`
 	RuleListPath string `json:"RuleListPath"`

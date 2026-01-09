@@ -37,21 +37,21 @@ func init() {
 
 func uninstallHandle(_ *cobra.Command, _ []string) {
 	var yes string
-	fmt.Println(Warn("确定要卸载 V2bX 吗?(Y/n)"))
+	fmt.Println(Warn("确定要卸载 BXtest 吗?(Y/n)"))
 	fmt.Scan(&yes)
 	if strings.ToLower(yes) != "y" {
 		fmt.Println("已取消卸载")
 	}
-	_, err := exec.RunCommandByShell("systemctl stop V2bX&&systemctl disable V2bX")
+	_, err := exec.RunCommandByShell("systemctl stop BXtest&&systemctl disable BXtest")
 	if err != nil {
 		fmt.Println(Err("exec cmd error: ", err))
 		fmt.Println(Err("卸载失败"))
 		return
 	}
-	_ = os.RemoveAll("/etc/systemd/system/V2bX.service")
-	_ = os.RemoveAll("/etc/V2bX/")
-	_ = os.RemoveAll("/usr/local/V2bX/")
-	_ = os.RemoveAll("/bin/V2bX")
+	_ = os.RemoveAll("/etc/systemd/system/BXtest.service")
+	_ = os.RemoveAll("/etc/BXtest/")
+	_ = os.RemoveAll("/usr/local/BXtest/")
+	_ = os.RemoveAll("/bin/BXtest")
 	_, err = exec.RunCommandByShell("systemctl daemon-reload&&systemctl reset-failed")
 	if err != nil {
 		fmt.Println(Err("exec cmd error: ", err))
