@@ -14,17 +14,17 @@ var targetVersion string
 var (
 	updateCommand = cobra.Command{
 		Use:   "update",
-		Short: "Update V2bX version",
+		Short: "Update BXtest version",
 		Run: func(_ *cobra.Command, _ []string) {
 			exec.RunCommandStd("bash",
-				"<(curl -Ls https://raw.githubusercontents.com/InazumaV/V2bX-script/master/install.sh)",
+				"<(curl -Ls https://raw.githubusercontent.com/Kopw/BXtest-script/master/install.sh)",
 				targetVersion)
 		},
 		Args: cobra.NoArgs,
 	}
 	uninstallCommand = cobra.Command{
 		Use:   "uninstall",
-		Short: "Uninstall V2bX",
+		Short: "Uninstall BXtest",
 		Run:   uninstallHandle,
 	}
 )

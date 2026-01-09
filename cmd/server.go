@@ -21,7 +21,7 @@ var (
 
 var serverCommand = cobra.Command{
 	Use:   "server",
-	Short: "Run V2bX server",
+	Short: "Run BXtest server",
 	Run:   serverHandle,
 	Args:  cobra.NoArgs,
 }
@@ -62,7 +62,7 @@ func serverHandle(_ *cobra.Command, _ []string) {
 		log.SetOutput(f)
 	}
 	limiter.Init()
-	log.Info("Start V2bX...")
+	log.Info("Start BXtest...")
 	vc, err := vCore.NewCore(c.CoresConfig)
 	if err != nil {
 		log.WithField("err", err).Error("new core failed")

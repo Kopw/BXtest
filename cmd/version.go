@@ -8,8 +8,8 @@ import (
 
 var (
 	version  = "TempVersion" //use ldflags replace
-	codename = "V2bX"
-	intro    = "A V2board backend based on multi core"
+	codename = "BXtest"
+	intro    = "A backend based on multi core"
 )
 
 var versionCommand = cobra.Command{

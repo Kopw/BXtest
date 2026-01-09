@@ -15,7 +15,7 @@ const (
 )
 
 func checkRunning() (bool, error) {
-	o, err := exec.RunCommandByShell("systemctl status V2bX | grep Active")
+	o, err := exec.RunCommandByShell("systemctl status BXtest | grep Active")
 	if err != nil {
 		return false, err
 	}
