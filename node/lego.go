@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/challenge/http01"
+	"github.com/go-acme/lego/v4/challenge/tlsalpn01"
 	"github.com/go-acme/lego/v4/providers/dns"
 	"github.com/go-acme/lego/v4/registration"
 
@@ -71,6 +72,11 @@ func (l *Lego) SetProvider() error {
 	switch l.config.CertMode {
 	case "http":
 		err := l.client.Challenge.SetHTTP01Provider(http01.NewProviderServer("", "33211"))
+		if err != nil {
+			return err
+		}
+	case "tls":
+		err := l.client.Challenge.SetTLSALPN01Provider(tlsalpn01.NewProviderServer("", "33211"))
 		if err != nil {
 			return err
 		}
