@@ -402,11 +402,15 @@ func (n *Hysteria2node) getHyConfig(info *panel.NodeInfo, config *conf.Options, 
 		return nil, err
 	}
 	return &server.Config{
-		TLSConfig:             *tls,
-		QUICConfig:            *quic,
-		Conn:                  conn,
-		RequestHook:           sniff,
-		Outbound:              Outbound,
+		TLSConfig:   *tls,
+		QUICConfig:  *quic,
+		Conn:        conn,
+		RequestHook: sniff,
+		Outbound:    Outbound,
+		CongestionConfig: server.CongestionConfig{
+			Type:       c.Congestion.Type,
+			BBRProfile: c.Congestion.BBRProfile,
+		},
 		BandwidthConfig:       *n.getBandwidthConfig(info),
 		IgnoreClientBandwidth: info.Hysteria2.Ignore_Client_Bandwidth,
 		DisableUDP:            c.DisableUDP,

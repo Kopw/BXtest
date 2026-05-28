@@ -16,6 +16,7 @@ type serverConfig struct {
 	ACME                  *serverConfigACME           `mapstructure:"acme"`
 	QUIC                  serverConfigQUIC            `mapstructure:"quic"`
 	Bandwidth             serverConfigBandwidth       `mapstructure:"bandwidth"`
+	Congestion            serverConfigCongestion      `mapstructure:"congestion"`
 	IgnoreClientBandwidth bool                        `mapstructure:"ignoreClientBandwidth"`
 	SpeedTest             bool                        `mapstructure:"speedTest"`
 	DisableUDP            bool                        `mapstructure:"disableUDP"`
@@ -67,6 +68,11 @@ type serverConfigQUIC struct {
 type serverConfigBandwidth struct {
 	Up   string `mapstructure:"up"`
 	Down string `mapstructure:"down"`
+}
+
+type serverConfigCongestion struct {
+	Type       string `mapstructure:"type"`
+	BBRProfile string `mapstructure:"bbrProfile"`
 }
 
 type serverConfigAuthHTTP struct {
