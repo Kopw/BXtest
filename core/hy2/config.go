@@ -255,7 +255,9 @@ func (n *Hysteria2node) getOutboundConfig(c *serverConfig) (server.Outbound, err
 
 	switch strings.ToLower(c.Resolver.Type) {
 	case "", "system":
-		if hasACL {
+		if c.Resolver.IPv4Only {
+			uOb = newIPv4OnlyResolver(uOb)
+		} else if hasACL {
 			// If the user uses ACL, we must put a resolver in front of it,
 			// for IP rules to work on domain requests.
 			uOb = outbounds.NewSystemResolver(uOb)

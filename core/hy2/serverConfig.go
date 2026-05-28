@@ -113,11 +113,12 @@ type serverConfigResolverHTTPS struct {
 }
 
 type serverConfigResolver struct {
-	Type  string                    `mapstructure:"type"`
-	TCP   serverConfigResolverTCP   `mapstructure:"tcp"`
-	UDP   serverConfigResolverUDP   `mapstructure:"udp"`
-	TLS   serverConfigResolverTLS   `mapstructure:"tls"`
-	HTTPS serverConfigResolverHTTPS `mapstructure:"https"`
+	Type     string                    `mapstructure:"type"`
+	IPv4Only bool                      `mapstructure:"ipv4Only"`
+	TCP      serverConfigResolverTCP   `mapstructure:"tcp"`
+	UDP      serverConfigResolverUDP   `mapstructure:"udp"`
+	TLS      serverConfigResolverTLS   `mapstructure:"tls"`
+	HTTPS    serverConfigResolverHTTPS `mapstructure:"https"`
 }
 
 type serverConfigSniff struct {
