@@ -63,18 +63,12 @@ func (n *Hysteria2node) getTLSConfig(config *conf.Options) (*server.TLSConfig, e
 	case "none", "":
 		return nil, fmt.Errorf("the CertMode cannot be none")
 	default:
-		var certs []tls.Certificate
-		cert, err := tls.LoadX509KeyPair(config.CertConfig.CertFile, config.CertConfig.KeyFile)
+		certLoader, err := newDynamicCertificateLoader(config.CertConfig.CertFile, config.CertConfig.KeyFile, n.Logger)
 		if err != nil {
 			return nil, err
 		}
-		certs = append(certs, cert)
 		return &server.TLSConfig{
-			Certificates: certs,
-			GetCertificate: func(tlsinfo *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				cert, err := tls.LoadX509KeyPair(config.CertConfig.CertFile, config.CertConfig.KeyFile)
-				return &cert, err
-			},
+			GetCertificate: certLoader.GetCertificate,
 		}, nil
 	}
 }
