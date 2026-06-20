@@ -22,6 +22,7 @@ type udpIO interface {
 	ReceiveMessage() (*protocol.UDPMessage, error)
 	SendMessage([]byte, *protocol.UDPMessage) error
 	LogReceive(size int) error
+	LogTransmit(size int) error
 	Hook(data []byte, reqAddr *string) error
 	UDP(reqAddr string) (UDPConn, error)
 	CheckUDP(reqAddr string) error
@@ -47,15 +48,17 @@ type udpSessionEntry struct {
 	connLock sync.Mutex
 	closed   bool
 
-	aclCache             map[string]error
-	redundancyMultiplier int
+	aclCache                        map[string]error
+	writeToRedundancyMultiplier     int
+	sendMessageRedundancyMultiplier int
 }
 
 func newUDPSessionEntry(
 	id uint32, io udpIO,
 	dialFunc func(string, []byte) (UDPConn, string, error),
 	exitFunc func(error),
-	redundancyMultiplier int,
+	writeToRedundancyMultiplier int,
+	sendMessageRedundancyMultiplier int,
 ) (e *udpSessionEntry) {
 	e = &udpSessionEntry{
 		ID:   id,
@@ -66,7 +69,8 @@ func newUDPSessionEntry(
 		DialFunc: dialFunc,
 		ExitFunc: exitFunc,
 
-		redundancyMultiplier: redundancyMultiplier,
+		writeToRedundancyMultiplier:     writeToRedundancyMultiplier,
+		sendMessageRedundancyMultiplier: sendMessageRedundancyMultiplier,
 	}
 
 	return e
@@ -122,7 +126,7 @@ func (e *udpSessionEntry) Feed(msg *protocol.UDPMessage) (int, error) {
 		return 0, err
 	}
 
-	return writeToWithRedundancy(e.conn, dfMsg.Data, addr, e.redundancyMultiplier)
+	return writeToWithRedundancy(e.conn, dfMsg.Data, addr, e.writeToRedundancyMultiplier)
 }
 
 func writeToWithRedundancy(conn UDPConn, data []byte, addr string, multiplier int) (int, error) {
@@ -228,7 +232,7 @@ func (e *udpSessionEntry) receiveLoop() {
 			e.CloseWithErr(err)
 			return
 		}
-		err = sendMessageAutoFragWithRedundancy(e.IO, msgBuf, msg, e.redundancyMultiplier)
+		err = sendMessageAutoFragWithRedundancy(e.IO, msgBuf, msg, e.sendMessageRedundancyMultiplier)
 		if err != nil {
 			e.CloseWithErr(err)
 			return
@@ -273,22 +277,24 @@ func sendMessageAutoFragWithRedundancy(io udpIO, buf []byte, msg *protocol.UDPMe
 // Similar to standard NAT, a UDP session is destroyed when no UDP message is received
 // for a certain period of time (specified by idleTimeout).
 type udpSessionManager struct {
-	io                   udpIO
-	eventLogger          udpEventLogger
-	idleTimeout          time.Duration
-	redundancyMultiplier int
+	io                              udpIO
+	eventLogger                     udpEventLogger
+	idleTimeout                     time.Duration
+	writeToRedundancyMultiplier     int
+	sendMessageRedundancyMultiplier int
 
 	mutex sync.RWMutex
 	m     map[uint32]*udpSessionEntry
 }
 
-func newUDPSessionManager(io udpIO, eventLogger udpEventLogger, idleTimeout time.Duration, redundancyMultiplier int) *udpSessionManager {
+func newUDPSessionManager(io udpIO, eventLogger udpEventLogger, idleTimeout time.Duration, writeToRedundancyMultiplier, sendMessageRedundancyMultiplier int) *udpSessionManager {
 	return &udpSessionManager{
-		io:                   io,
-		eventLogger:          eventLogger,
-		idleTimeout:          idleTimeout,
-		redundancyMultiplier: redundancyMultiplier,
-		m:                    make(map[uint32]*udpSessionEntry),
+		io:                              io,
+		eventLogger:                     eventLogger,
+		idleTimeout:                     idleTimeout,
+		writeToRedundancyMultiplier:     writeToRedundancyMultiplier,
+		sendMessageRedundancyMultiplier: sendMessageRedundancyMultiplier,
+		m:                               make(map[uint32]*udpSessionEntry),
 	}
 }
 
@@ -371,7 +377,14 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 			m.mutex.Unlock()
 		}
 
-		entry = newUDPSessionEntry(msg.SessionID, m.io, dialFunc, exitFunc, m.redundancyMultiplier)
+		entry = newUDPSessionEntry(
+			msg.SessionID,
+			m.io,
+			dialFunc,
+			exitFunc,
+			m.writeToRedundancyMultiplier,
+			m.sendMessageRedundancyMultiplier,
+		)
 
 		// Insert the session into the map
 		m.mutex.Lock()

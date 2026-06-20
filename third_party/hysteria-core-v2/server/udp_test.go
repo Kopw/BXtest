@@ -19,7 +19,7 @@ import (
 func TestUDPSessionManager(t *testing.T) {
 	io := newMockUDPIO(t)
 	eventLogger := newMockUDPEventLogger(t)
-	sm := newUDPSessionManager(io, eventLogger, 2*time.Second, 1)
+	sm := newUDPSessionManager(io, eventLogger, 2*time.Second, 1, 1)
 
 	msgCh := make(chan *protocol.UDPMessage, 4)
 	io.EXPECT().ReceiveMessage().RunAndReturn(func() (*protocol.UDPMessage, error) {
@@ -215,11 +215,12 @@ func TestUDPSessionEntryFeedRedundantWriteTo(t *testing.T) {
 			conn := newMockUDPConn(t)
 			conn.EXPECT().WriteTo(msg.Data, msg.Addr).Return(len(msg.Data), nil).Times(tc.multiplier)
 			entry := &udpSessionEntry{
-				D:                    &frag.Defragger{},
-				Last:                 utils.NewAtomicTime(time.Now()),
-				conn:                 conn,
-				aclCache:             map[string]error{msg.Addr: nil},
-				redundancyMultiplier: tc.multiplier,
+				D:                               &frag.Defragger{},
+				Last:                            utils.NewAtomicTime(time.Now()),
+				conn:                            conn,
+				aclCache:                        map[string]error{msg.Addr: nil},
+				writeToRedundancyMultiplier:     tc.multiplier,
+				sendMessageRedundancyMultiplier: 1,
 			}
 
 			n, err := entry.Feed(msg)
@@ -233,7 +234,7 @@ func TestUDPSessionEntryFeedRedundantWriteTo(t *testing.T) {
 func TestUDPSessionManagerClosesOnRedundantWriteError(t *testing.T) {
 	io := newMockUDPIO(t)
 	eventLogger := newMockUDPEventLogger(t)
-	sm := newUDPSessionManager(io, eventLogger, 30*time.Second, 3)
+	sm := newUDPSessionManager(io, eventLogger, 30*time.Second, 3, 1)
 
 	msg := &protocol.UDPMessage{
 		SessionID: 42,
@@ -400,7 +401,8 @@ func TestUDPSessionEntryReceiveLoopClosesOnRedundantSendError(t *testing.T) {
 		ExitFunc: func(err error) {
 			errCh <- err
 		},
-		redundancyMultiplier: 3,
+		writeToRedundancyMultiplier:     1,
+		sendMessageRedundancyMultiplier: 3,
 	}
 	reply := []byte("reply")
 	addr := "target.example:9000"
@@ -424,3 +426,56 @@ func TestUDPSessionEntryReceiveLoopClosesOnRedundantSendError(t *testing.T) {
 	assert.ErrorIs(t, <-errCh, sendErr)
 	assert.Equal(t, 2, sendCount)
 }
+
+func TestUDPIOImplLogsTrafficWithSplitRedundancyMultipliers(t *testing.T) {
+	logger := &recordingTrafficLogger{}
+	io := &udpIOImpl{
+		AuthID:                          "user-1",
+		TrafficLogger:                   logger,
+		WriteToRedundancyMultiplier:     3,
+		SendMessageRedundancyMultiplier: 4,
+	}
+
+	assert.NoError(t, io.LogTransmit(5))
+	assert.NoError(t, io.LogReceive(7))
+	assert.Equal(t, []trafficLogEntry{
+		{id: "user-1", tx: 15, rx: 0},
+		{id: "user-1", tx: 0, rx: 28},
+	}, logger.entries)
+}
+
+func TestUDPIOImplLogsTrafficDefaultMultiplierAsOne(t *testing.T) {
+	logger := &recordingTrafficLogger{}
+	io := &udpIOImpl{
+		AuthID:        "user-1",
+		TrafficLogger: logger,
+	}
+
+	assert.NoError(t, io.LogTransmit(5))
+	assert.NoError(t, io.LogReceive(7))
+	assert.Equal(t, []trafficLogEntry{
+		{id: "user-1", tx: 5, rx: 0},
+		{id: "user-1", tx: 0, rx: 7},
+	}, logger.entries)
+}
+
+type trafficLogEntry struct {
+	id string
+	tx uint64
+	rx uint64
+}
+
+type recordingTrafficLogger struct {
+	entries []trafficLogEntry
+}
+
+func (l *recordingTrafficLogger) LogTraffic(id string, tx, rx uint64) bool {
+	l.entries = append(l.entries, trafficLogEntry{id: id, tx: tx, rx: rx})
+	return true
+}
+
+func (l *recordingTrafficLogger) LogOnlineState(string, bool) {}
+
+func (l *recordingTrafficLogger) TraceStream(HyStream, *StreamStats) {}
+
+func (l *recordingTrafficLogger) UntraceStream(HyStream) {}

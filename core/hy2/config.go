@@ -55,18 +55,49 @@ const (
 	defaultUDPIdleTimeout      = 60 * time.Second
 )
 
-func getUDPForwardingRedundancyMultiplier(c *serverConfig) (int, error) {
-	configuredMultiplier := c.UDPForwardingRedundancy.Multiplier
-	if configuredMultiplier < 0 || configuredMultiplier > 10 {
-		return 0, fmt.Errorf("udpForwardingRedundancy.multiplier must be between 1 and 10")
+type udpForwardingRedundancyMultipliers struct {
+	WriteTo     int
+	SendMessage int
+}
+
+func getUDPForwardingRedundancyMultipliers(c *serverConfig) (udpForwardingRedundancyMultipliers, error) {
+	r := c.UDPForwardingRedundancy
+	if err := validateUDPForwardingRedundancyMultiplier("multiplier", r.Multiplier); err != nil {
+		return udpForwardingRedundancyMultipliers{}, err
 	}
-	if !c.UDPForwardingRedundancy.Enabled {
-		return 1, nil
+	if err := validateUDPForwardingRedundancyMultiplier("writeToMultiplier", r.WriteToMultiplier); err != nil {
+		return udpForwardingRedundancyMultipliers{}, err
 	}
-	if configuredMultiplier < 1 {
-		return 0, fmt.Errorf("udpForwardingRedundancy.multiplier must be between 1 and 10")
+	if err := validateUDPForwardingRedundancyMultiplier("sendMessageMultiplier", r.SendMessageMultiplier); err != nil {
+		return udpForwardingRedundancyMultipliers{}, err
 	}
-	return configuredMultiplier, nil
+
+	if !r.Enabled {
+		return udpForwardingRedundancyMultipliers{WriteTo: 1, SendMessage: 1}, nil
+	}
+
+	multipliers := udpForwardingRedundancyMultipliers{WriteTo: 1, SendMessage: 1}
+	if r.Multiplier != nil {
+		multipliers.WriteTo = *r.Multiplier
+		multipliers.SendMessage = *r.Multiplier
+	}
+	if r.WriteToMultiplier != nil {
+		multipliers.WriteTo = *r.WriteToMultiplier
+	}
+	if r.SendMessageMultiplier != nil {
+		multipliers.SendMessage = *r.SendMessageMultiplier
+	}
+	return multipliers, nil
+}
+
+func validateUDPForwardingRedundancyMultiplier(field string, multiplier *int) error {
+	if multiplier == nil {
+		return nil
+	}
+	if *multiplier < 1 || *multiplier > 100 {
+		return fmt.Errorf("udpForwardingRedundancy.%s must be between 1 and 100", field)
+	}
+	return nil
 }
 
 func (n *Hysteria2node) getTLSConfig(config *conf.Options) (*server.TLSConfig, error) {
@@ -411,7 +442,7 @@ func (n *Hysteria2node) getHyConfig(info *panel.NodeInfo, config *conf.Options, 
 	if err != nil {
 		return nil, err
 	}
-	udpForwardingRedundancyMultiplier, err := getUDPForwardingRedundancyMultiplier(c)
+	udpForwardingRedundancyMultipliers, err := getUDPForwardingRedundancyMultipliers(c)
 	if err != nil {
 		return nil, err
 	}
@@ -425,14 +456,15 @@ func (n *Hysteria2node) getHyConfig(info *panel.NodeInfo, config *conf.Options, 
 			Type:       c.Congestion.Type,
 			BBRProfile: c.Congestion.BBRProfile,
 		},
-		BandwidthConfig:                   *n.getBandwidthConfig(info),
-		IgnoreClientBandwidth:             info.Hysteria2.Ignore_Client_Bandwidth,
-		DisableUDP:                        c.DisableUDP,
-		UDPIdleTimeout:                    c.UDPIdleTimeout,
-		UDPForwardingRedundancyMultiplier: udpForwardingRedundancyMultiplier,
-		EventLogger:                       n.EventLogger,
-		TrafficLogger:                     n.TrafficLogger,
-		MasqHandler:                       Masq,
+		BandwidthConfig:                              *n.getBandwidthConfig(info),
+		IgnoreClientBandwidth:                        info.Hysteria2.Ignore_Client_Bandwidth,
+		DisableUDP:                                   c.DisableUDP,
+		UDPIdleTimeout:                               c.UDPIdleTimeout,
+		UDPForwardingRedundancyWriteToMultiplier:     udpForwardingRedundancyMultipliers.WriteTo,
+		UDPForwardingRedundancySendMessageMultiplier: udpForwardingRedundancyMultipliers.SendMessage,
+		EventLogger:                                  n.EventLogger,
+		TrafficLogger:                                n.TrafficLogger,
+		MasqHandler:                                  Masq,
 	}, nil
 }
 

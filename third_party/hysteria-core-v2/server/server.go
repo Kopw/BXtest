@@ -199,10 +199,19 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if !h.config.DisableUDP {
 				go func() {
 					sm := newUDPSessionManager(
-						&udpIOImpl{h.conn, id, h.config.TrafficLogger, h.config.RequestHook, h.config.Outbound},
+						&udpIOImpl{
+							Conn:                            h.conn,
+							AuthID:                          id,
+							TrafficLogger:                   h.config.TrafficLogger,
+							RequestHook:                     h.config.RequestHook,
+							Outbound:                        h.config.Outbound,
+							WriteToRedundancyMultiplier:     h.config.UDPForwardingRedundancyWriteToMultiplier,
+							SendMessageRedundancyMultiplier: h.config.UDPForwardingRedundancySendMessageMultiplier,
+						},
 						&udpEventLoggerImpl{h.conn, id, h.config.EventLogger},
 						h.config.UDPIdleTimeout,
-						h.config.UDPForwardingRedundancyMultiplier,
+						h.config.UDPForwardingRedundancyWriteToMultiplier,
+						h.config.UDPForwardingRedundancySendMessageMultiplier,
 					)
 					h.udpSM = sm
 					go sm.Run()
@@ -339,11 +348,13 @@ func (h *h3sHandler) masqHandler(w http.ResponseWriter, r *http.Request) {
 
 // udpIOImpl is the IO implementation for udpSessionManager with TrafficLogger support
 type udpIOImpl struct {
-	Conn          *quic.Conn
-	AuthID        string
-	TrafficLogger TrafficLogger
-	RequestHook   RequestHook
-	Outbound      Outbound
+	Conn                            *quic.Conn
+	AuthID                          string
+	TrafficLogger                   TrafficLogger
+	RequestHook                     RequestHook
+	Outbound                        Outbound
+	WriteToRedundancyMultiplier     int
+	SendMessageRedundancyMultiplier int
 }
 
 func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
@@ -358,13 +369,8 @@ func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
 			// Invalid message, this is fine - just wait for the next
 			continue
 		}
-		if io.TrafficLogger != nil {
-			ok := io.TrafficLogger.LogTraffic(io.AuthID, uint64(len(udpMsg.Data)), 0)
-			if !ok {
-				// TrafficLogger requested to disconnect the client
-				_ = io.Conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
-				return nil, errDisconnect
-			}
+		if err := io.LogTransmit(len(udpMsg.Data)); err != nil {
+			return nil, err
 		}
 		return udpMsg, nil
 	}
@@ -380,11 +386,25 @@ func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 }
 
 func (io *udpIOImpl) LogReceive(size int) error {
+	return io.logTraffic(0, uint64(size), io.SendMessageRedundancyMultiplier)
+}
+
+func (io *udpIOImpl) LogTransmit(size int) error {
+	return io.logTraffic(uint64(size), 0, io.WriteToRedundancyMultiplier)
+}
+
+func (io *udpIOImpl) logTraffic(tx, rx uint64, redundancyMultiplier int) error {
 	if io.TrafficLogger != nil {
-		ok := io.TrafficLogger.LogTraffic(io.AuthID, 0, uint64(size))
+		multiplier := uint64(redundancyMultiplier)
+		if multiplier == 0 {
+			multiplier = 1
+		}
+		ok := io.TrafficLogger.LogTraffic(io.AuthID, tx*multiplier, rx*multiplier)
 		if !ok {
 			// TrafficLogger requested to disconnect the client
-			_ = io.Conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
+			if io.Conn != nil {
+				_ = io.Conn.CloseWithError(closeErrCodeTrafficLimitReached, "")
+			}
 			return errDisconnect
 		}
 	}

@@ -159,6 +159,52 @@ func (_c *mockUDPIO_LogReceive_Call) RunAndReturn(run func(int) error) *mockUDPI
 	return _c
 }
 
+// LogTransmit provides a mock function with given fields: size
+func (_m *mockUDPIO) LogTransmit(size int) error {
+	ret := _m.Called(size)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LogTransmit")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int) error); ok {
+		r0 = rf(size)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// mockUDPIO_LogTransmit_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LogTransmit'
+type mockUDPIO_LogTransmit_Call struct {
+	*mock.Call
+}
+
+// LogTransmit is a helper method to define mock.On call
+//   - size int
+func (_e *mockUDPIO_Expecter) LogTransmit(size interface{}) *mockUDPIO_LogTransmit_Call {
+	return &mockUDPIO_LogTransmit_Call{Call: _e.mock.On("LogTransmit", size)}
+}
+
+func (_c *mockUDPIO_LogTransmit_Call) Run(run func(size int)) *mockUDPIO_LogTransmit_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(int))
+	})
+	return _c
+}
+
+func (_c *mockUDPIO_LogTransmit_Call) Return(_a0 error) *mockUDPIO_LogTransmit_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockUDPIO_LogTransmit_Call) RunAndReturn(run func(int) error) *mockUDPIO_LogTransmit_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ReceiveMessage provides a mock function with no fields
 func (_m *mockUDPIO) ReceiveMessage() (*protocol.UDPMessage, error) {
 	ret := _m.Called()

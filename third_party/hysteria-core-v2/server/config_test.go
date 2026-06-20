@@ -12,32 +12,38 @@ import (
 
 func TestConfigUDPForwardingRedundancyMultiplierValidation(t *testing.T) {
 	tests := []struct {
-		name       string
-		multiplier int
-		want       int
-		wantErr    bool
+		name                  string
+		writeToMultiplier     int
+		sendMessageMultiplier int
+		wantWriteTo           int
+		wantSendMessage       int
+		wantErr               string
 	}{
-		{name: "default", multiplier: 0, want: 1},
-		{name: "one", multiplier: 1, want: 1},
-		{name: "two", multiplier: 2, want: 2},
-		{name: "ten", multiplier: 10, want: 10},
-		{name: "eleven", multiplier: 11, wantErr: true},
-		{name: "negative", multiplier: -1, wantErr: true},
+		{name: "default", wantWriteTo: 1, wantSendMessage: 1},
+		{name: "one", writeToMultiplier: 1, sendMessageMultiplier: 1, wantWriteTo: 1, wantSendMessage: 1},
+		{name: "split", writeToMultiplier: 2, sendMessageMultiplier: 3, wantWriteTo: 2, wantSendMessage: 3},
+		{name: "one hundred", writeToMultiplier: 100, sendMessageMultiplier: 100, wantWriteTo: 100, wantSendMessage: 100},
+		{name: "writeTo one hundred one", writeToMultiplier: 101, sendMessageMultiplier: 1, wantErr: "UDPForwardingRedundancyWriteToMultiplier"},
+		{name: "sendMessage one hundred one", writeToMultiplier: 1, sendMessageMultiplier: 101, wantErr: "UDPForwardingRedundancySendMessageMultiplier"},
+		{name: "writeTo negative", writeToMultiplier: -1, sendMessageMultiplier: 1, wantErr: "UDPForwardingRedundancyWriteToMultiplier"},
+		{name: "sendMessage negative", writeToMultiplier: 1, sendMessageMultiplier: -1, wantErr: "UDPForwardingRedundancySendMessageMultiplier"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := minimalValidServerConfig()
-			config.UDPForwardingRedundancyMultiplier = tt.multiplier
+			config.UDPForwardingRedundancyWriteToMultiplier = tt.writeToMultiplier
+			config.UDPForwardingRedundancySendMessageMultiplier = tt.sendMessageMultiplier
 
 			err := config.fill()
 
-			if tt.wantErr {
-				assert.ErrorContains(t, err, "UDPForwardingRedundancyMultiplier")
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.want, config.UDPForwardingRedundancyMultiplier)
+			assert.Equal(t, tt.wantWriteTo, config.UDPForwardingRedundancyWriteToMultiplier)
+			assert.Equal(t, tt.wantSendMessage, config.UDPForwardingRedundancySendMessageMultiplier)
 		})
 	}
 }

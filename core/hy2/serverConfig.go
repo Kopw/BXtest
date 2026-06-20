@@ -32,8 +32,10 @@ type serverConfig struct {
 }
 
 type serverConfigUDPForwardingRedundancy struct {
-	Enabled    bool `mapstructure:"enabled"`
-	Multiplier int  `mapstructure:"multiplier"`
+	Enabled               bool `mapstructure:"enabled"`
+	Multiplier            *int `mapstructure:"multiplier"`
+	WriteToMultiplier     *int `mapstructure:"writeToMultiplier"`
+	SendMessageMultiplier *int `mapstructure:"sendMessageMultiplier"`
 }
 
 type serverConfigObfsSalamander struct {

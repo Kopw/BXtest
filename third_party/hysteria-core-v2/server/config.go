@@ -25,22 +25,23 @@ const (
 )
 
 type Config struct {
-	TLSConfig                         TLSConfig
-	QUICConfig                        QUICConfig
-	Conn                              net.PacketConn
-	Cleanup                           io.Closer
-	RequestHook                       RequestHook
-	Outbound                          Outbound
-	CongestionConfig                  CongestionConfig
-	BandwidthConfig                   BandwidthConfig
-	IgnoreClientBandwidth             bool
-	DisableUDP                        bool
-	UDPIdleTimeout                    time.Duration
-	UDPForwardingRedundancyMultiplier int
-	Authenticator                     Authenticator
-	EventLogger                       EventLogger
-	TrafficLogger                     TrafficLogger
-	MasqHandler                       http.Handler
+	TLSConfig                                    TLSConfig
+	QUICConfig                                   QUICConfig
+	Conn                                         net.PacketConn
+	Cleanup                                      io.Closer
+	RequestHook                                  RequestHook
+	Outbound                                     Outbound
+	CongestionConfig                             CongestionConfig
+	BandwidthConfig                              BandwidthConfig
+	IgnoreClientBandwidth                        bool
+	DisableUDP                                   bool
+	UDPIdleTimeout                               time.Duration
+	UDPForwardingRedundancyWriteToMultiplier     int
+	UDPForwardingRedundancySendMessageMultiplier int
+	Authenticator                                Authenticator
+	EventLogger                                  EventLogger
+	TrafficLogger                                TrafficLogger
+	MasqHandler                                  http.Handler
 }
 
 // fill fills the fields that are not set by the user with default values when possible,
@@ -108,10 +109,15 @@ func (c *Config) fill() error {
 	} else if c.UDPIdleTimeout < 2*time.Second || c.UDPIdleTimeout > 600*time.Second {
 		return errors.ConfigError{Field: "UDPIdleTimeout", Reason: "must be between 2s and 600s"}
 	}
-	if c.UDPForwardingRedundancyMultiplier == 0 {
-		c.UDPForwardingRedundancyMultiplier = 1
-	} else if c.UDPForwardingRedundancyMultiplier < 1 || c.UDPForwardingRedundancyMultiplier > 10 {
-		return errors.ConfigError{Field: "UDPForwardingRedundancyMultiplier", Reason: "must be between 1 and 10"}
+	if c.UDPForwardingRedundancyWriteToMultiplier == 0 {
+		c.UDPForwardingRedundancyWriteToMultiplier = 1
+	} else if c.UDPForwardingRedundancyWriteToMultiplier < 1 || c.UDPForwardingRedundancyWriteToMultiplier > 100 {
+		return errors.ConfigError{Field: "UDPForwardingRedundancyWriteToMultiplier", Reason: "must be between 1 and 100"}
+	}
+	if c.UDPForwardingRedundancySendMessageMultiplier == 0 {
+		c.UDPForwardingRedundancySendMessageMultiplier = 1
+	} else if c.UDPForwardingRedundancySendMessageMultiplier < 1 || c.UDPForwardingRedundancySendMessageMultiplier > 100 {
+		return errors.ConfigError{Field: "UDPForwardingRedundancySendMessageMultiplier", Reason: "must be between 1 and 100"}
 	}
 	if c.Authenticator == nil {
 		return errors.ConfigError{Field: "Authenticator", Reason: "must be set"}
