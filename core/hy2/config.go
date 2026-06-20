@@ -55,6 +55,20 @@ const (
 	defaultUDPIdleTimeout      = 60 * time.Second
 )
 
+func getUDPForwardingRedundancyMultiplier(c *serverConfig) (int, error) {
+	configuredMultiplier := c.UDPForwardingRedundancy.Multiplier
+	if configuredMultiplier < 0 || configuredMultiplier > 10 {
+		return 0, fmt.Errorf("udpForwardingRedundancy.multiplier must be between 1 and 10")
+	}
+	if !c.UDPForwardingRedundancy.Enabled {
+		return 1, nil
+	}
+	if configuredMultiplier < 1 {
+		return 0, fmt.Errorf("udpForwardingRedundancy.multiplier must be between 1 and 10")
+	}
+	return configuredMultiplier, nil
+}
+
 func (n *Hysteria2node) getTLSConfig(config *conf.Options) (*server.TLSConfig, error) {
 	if config.CertConfig == nil {
 		return nil, fmt.Errorf("the CertConfig is not vail")
@@ -397,6 +411,10 @@ func (n *Hysteria2node) getHyConfig(info *panel.NodeInfo, config *conf.Options, 
 	if err != nil {
 		return nil, err
 	}
+	udpForwardingRedundancyMultiplier, err := getUDPForwardingRedundancyMultiplier(c)
+	if err != nil {
+		return nil, err
+	}
 	return &server.Config{
 		TLSConfig:   *tls,
 		QUICConfig:  *quic,
@@ -407,13 +425,14 @@ func (n *Hysteria2node) getHyConfig(info *panel.NodeInfo, config *conf.Options, 
 			Type:       c.Congestion.Type,
 			BBRProfile: c.Congestion.BBRProfile,
 		},
-		BandwidthConfig:       *n.getBandwidthConfig(info),
-		IgnoreClientBandwidth: info.Hysteria2.Ignore_Client_Bandwidth,
-		DisableUDP:            c.DisableUDP,
-		UDPIdleTimeout:        c.UDPIdleTimeout,
-		EventLogger:           n.EventLogger,
-		TrafficLogger:         n.TrafficLogger,
-		MasqHandler:           Masq,
+		BandwidthConfig:                   *n.getBandwidthConfig(info),
+		IgnoreClientBandwidth:             info.Hysteria2.Ignore_Client_Bandwidth,
+		DisableUDP:                        c.DisableUDP,
+		UDPIdleTimeout:                    c.UDPIdleTimeout,
+		UDPForwardingRedundancyMultiplier: udpForwardingRedundancyMultiplier,
+		EventLogger:                       n.EventLogger,
+		TrafficLogger:                     n.TrafficLogger,
+		MasqHandler:                       Masq,
 	}, nil
 }
 

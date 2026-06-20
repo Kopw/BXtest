@@ -361,4 +361,6 @@ require (
 
 replace github.com/sagernet/sing-box v1.13.0 => github.com/Kopw/sing-box_mod v0.0.0-20260529024846-3ab85c3b8229
 
+replace github.com/apernet/hysteria/core/v2 => ./third_party/hysteria-core-v2
+
 replace github.com/xtls/xray-core v1.251202.0 => github.com/wyx2685/xray-core v0.0.0-20251202200223-63db1dc9e9e2

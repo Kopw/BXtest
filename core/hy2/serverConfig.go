@@ -10,24 +10,30 @@ import (
 )
 
 type serverConfig struct {
-	Listen                string                      `mapstructure:"listen"`
-	Obfs                  serverConfigObfs            `mapstructure:"obfs"`
-	TLS                   *serverConfigTLS            `mapstructure:"tls"`
-	ACME                  *serverConfigACME           `mapstructure:"acme"`
-	QUIC                  serverConfigQUIC            `mapstructure:"quic"`
-	Bandwidth             serverConfigBandwidth       `mapstructure:"bandwidth"`
-	Congestion            serverConfigCongestion      `mapstructure:"congestion"`
-	IgnoreClientBandwidth bool                        `mapstructure:"ignoreClientBandwidth"`
-	SpeedTest             bool                        `mapstructure:"speedTest"`
-	DisableUDP            bool                        `mapstructure:"disableUDP"`
-	UDPIdleTimeout        time.Duration               `mapstructure:"udpIdleTimeout"`
-	Auth                  serverConfigAuth            `mapstructure:"auth"`
-	Resolver              serverConfigResolver        `mapstructure:"resolver"`
-	Sniff                 serverConfigSniff           `mapstructure:"sniff"`
-	ACL                   serverConfigACL             `mapstructure:"acl"`
-	Outbounds             []serverConfigOutboundEntry `mapstructure:"outbounds"`
-	TrafficStats          serverConfigTrafficStats    `mapstructure:"trafficStats"`
-	Masquerade            serverConfigMasquerade      `mapstructure:"masquerade"`
+	Listen                  string                              `mapstructure:"listen"`
+	Obfs                    serverConfigObfs                    `mapstructure:"obfs"`
+	TLS                     *serverConfigTLS                    `mapstructure:"tls"`
+	ACME                    *serverConfigACME                   `mapstructure:"acme"`
+	QUIC                    serverConfigQUIC                    `mapstructure:"quic"`
+	Bandwidth               serverConfigBandwidth               `mapstructure:"bandwidth"`
+	Congestion              serverConfigCongestion              `mapstructure:"congestion"`
+	IgnoreClientBandwidth   bool                                `mapstructure:"ignoreClientBandwidth"`
+	SpeedTest               bool                                `mapstructure:"speedTest"`
+	DisableUDP              bool                                `mapstructure:"disableUDP"`
+	UDPIdleTimeout          time.Duration                       `mapstructure:"udpIdleTimeout"`
+	UDPForwardingRedundancy serverConfigUDPForwardingRedundancy `mapstructure:"udpForwardingRedundancy"`
+	Auth                    serverConfigAuth                    `mapstructure:"auth"`
+	Resolver                serverConfigResolver                `mapstructure:"resolver"`
+	Sniff                   serverConfigSniff                   `mapstructure:"sniff"`
+	ACL                     serverConfigACL                     `mapstructure:"acl"`
+	Outbounds               []serverConfigOutboundEntry         `mapstructure:"outbounds"`
+	TrafficStats            serverConfigTrafficStats            `mapstructure:"trafficStats"`
+	Masquerade              serverConfigMasquerade              `mapstructure:"masquerade"`
+}
+
+type serverConfigUDPForwardingRedundancy struct {
+	Enabled    bool `mapstructure:"enabled"`
+	Multiplier int  `mapstructure:"multiplier"`
 }
 
 type serverConfigObfsSalamander struct {
