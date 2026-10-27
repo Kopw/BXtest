@@ -71,8 +71,9 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 			h.Logger.Error("mimic stopped, clients of this node can't connect until it is reloaded", zap.String("tag", tag), zap.Error(err))
 		})
 		if err != nil {
-			_ = hyconfig.Conn.Close()
-			return fmt.Errorf("start mimic: %w", err)
+			// Don't fail the whole BXtest (and every other node) over Mimic: this node keeps
+			// serving, only Mimic clients can't reach it until Mimic is fixed and the node reloaded
+			h.Logger.Error("failed to start mimic, the node runs without it", zap.String("tag", tag), zap.Error(err))
 		}
 	}
 	s, err := server.NewServer(hyconfig)
