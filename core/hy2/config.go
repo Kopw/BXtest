@@ -178,6 +178,8 @@ func (n *Hysteria2node) getQUICConfig(config *serverConfig) (*server.QUICConfig,
 	// todo fix !linux && !windows && !darwin
 	quic.DisablePathMTUDiscovery = false
 	quic.DisableStatelessReset = config.QUIC.DisableStatelessReset
+	// Mimic rewrites packets one by one, GSO batches would come out malformed
+	quic.DisableGSO = config.Mimic.Enabled
 
 	return quic, nil
 }

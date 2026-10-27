@@ -29,6 +29,17 @@ type serverConfig struct {
 	Outbounds               []serverConfigOutboundEntry         `mapstructure:"outbounds"`
 	TrafficStats            serverConfigTrafficStats            `mapstructure:"trafficStats"`
 	Masquerade              serverConfigMasquerade              `mapstructure:"masquerade"`
+	Mimic                   serverConfigMimic                   `mapstructure:"mimic"`
+}
+
+// serverConfigMimic disguises the node's UDP as TCP with Mimic (https://github.com/hack3ric/mimic),
+// same keys as the official hysteria server. Clients must enable Mimic too.
+type serverConfigMimic struct {
+	Enabled   bool     `mapstructure:"enabled"`
+	Interface string   `mapstructure:"interface"`
+	XDPMode   string   `mapstructure:"xdpMode"`
+	Path      string   `mapstructure:"path"`
+	ExtraArgs []string `mapstructure:"extraArgs"`
 }
 
 type serverConfigUDPForwardingRedundancy struct {

@@ -1,10 +1,13 @@
 package hy2
 
 import (
+	"fmt"
+	"net"
 	"strings"
 
 	"github.com/InazumaV/V2bX/api/panel"
 	"github.com/InazumaV/V2bX/conf"
+	"github.com/InazumaV/V2bX/core/hy2/mimic"
 	"github.com/apernet/hysteria/core/v2/server"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -16,6 +19,7 @@ type Hysteria2node struct {
 	Logger        *zap.Logger
 	EventLogger   server.EventLogger
 	TrafficLogger server.TrafficLogger
+	Mimic         *mimic.Instance
 }
 
 func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Options) error {
@@ -51,8 +55,29 @@ func (h *Hysteria2) AddNode(tag string, info *panel.NodeInfo, config *conf.Optio
 		return err
 	}
 	hyconfig.Authenticator = h.Auth
+	if c.Mimic.Enabled {
+		addr, ok := hyconfig.Conn.LocalAddr().(*net.UDPAddr)
+		if !ok {
+			_ = hyconfig.Conn.Close()
+			return fmt.Errorf("mimic: unsupported listen address %s", hyconfig.Conn.LocalAddr())
+		}
+		n.Mimic, err = mimic.Start(mimic.Config{
+			Enabled:   true,
+			Interface: c.Mimic.Interface,
+			XDPMode:   c.Mimic.XDPMode,
+			Path:      c.Mimic.Path,
+			ExtraArgs: c.Mimic.ExtraArgs,
+		}, mimic.RoleServer, []*net.UDPAddr{addr}, h.Logger, func(err error) {
+			h.Logger.Error("mimic stopped, clients of this node can't connect until it is reloaded", zap.String("tag", tag), zap.Error(err))
+		})
+		if err != nil {
+			_ = hyconfig.Conn.Close()
+			return fmt.Errorf("start mimic: %w", err)
+		}
+	}
 	s, err := server.NewServer(hyconfig)
 	if err != nil {
+		_ = n.Mimic.Close()
 		return err
 	}
 	n.Hy2server = s
@@ -71,6 +96,9 @@ func (h *Hysteria2) DelNode(tag string) error {
 	err := h.Hy2nodes[tag].Hy2server.Close()
 	if err != nil {
 		return err
+	}
+	if err := h.Hy2nodes[tag].Mimic.Close(); err != nil {
+		h.Logger.Warn("failed to stop mimic", zap.String("tag", tag), zap.Error(err))
 	}
 	delete(h.Hy2nodes, tag)
 	return nil
