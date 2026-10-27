@@ -90,6 +90,19 @@ func getUDPForwardingRedundancyMultipliers(c *serverConfig) (udpForwardingRedund
 	return multipliers, nil
 }
 
+// getUDPForwardingRedundancyExcludePort returns the remote ports that skip UDP redundancy, or nil for none
+func getUDPForwardingRedundancyExcludePort(c *serverConfig) (func(port uint16) bool, error) {
+	r := c.UDPForwardingRedundancy
+	if !r.Enabled || r.ExcludePorts == "" {
+		return nil, nil
+	}
+	ports := eUtils.ParsePortUnion(r.ExcludePorts)
+	if ports == nil {
+		return nil, fmt.Errorf("udpForwardingRedundancy.excludePorts: invalid port union")
+	}
+	return ports.Contains, nil
+}
+
 func validateUDPForwardingRedundancyMultiplier(field string, multiplier *int) error {
 	if multiplier == nil {
 		return nil
@@ -164,6 +177,7 @@ func (n *Hysteria2node) getQUICConfig(config *serverConfig) (*server.QUICConfig,
 	}
 	// todo fix !linux && !windows && !darwin
 	quic.DisablePathMTUDiscovery = false
+	quic.DisableStatelessReset = config.QUIC.DisableStatelessReset
 
 	return quic, nil
 }
@@ -446,22 +460,32 @@ func (n *Hysteria2node) getHyConfig(info *panel.NodeInfo, config *conf.Options, 
 	if err != nil {
 		return nil, err
 	}
+	udpForwardingRedundancyExcludePort, err := getUDPForwardingRedundancyExcludePort(c)
+	if err != nil {
+		return nil, err
+	}
+	statelessResetKey, err := loadStatelessResetKey(config.Hysteria2ConfigPath, n.Tag)
+	if err != nil {
+		n.Logger.Warn("persistent stateless reset key unavailable, using a random key", zap.Error(err))
+	}
 	return &server.Config{
-		TLSConfig:   *tls,
-		QUICConfig:  *quic,
-		Conn:        conn,
-		RequestHook: sniff,
-		Outbound:    Outbound,
+		TLSConfig:         *tls,
+		QUICConfig:        *quic,
+		Conn:              conn,
+		StatelessResetKey: statelessResetKey,
+		RequestHook:       sniff,
+		Outbound:          Outbound,
 		CongestionConfig: server.CongestionConfig{
 			Type:       c.Congestion.Type,
 			BBRProfile: c.Congestion.BBRProfile,
 		},
-		BandwidthConfig:                              *n.getBandwidthConfig(info),
-		IgnoreClientBandwidth:                        info.Hysteria2.Ignore_Client_Bandwidth,
-		DisableUDP:                                   c.DisableUDP,
-		UDPIdleTimeout:                               c.UDPIdleTimeout,
-		UDPForwardingRedundancyWriteToMultiplier:     udpForwardingRedundancyMultipliers.WriteTo,
+		BandwidthConfig:                          *n.getBandwidthConfig(info),
+		IgnoreClientBandwidth:                    info.Hysteria2.Ignore_Client_Bandwidth,
+		DisableUDP:                               c.DisableUDP,
+		UDPIdleTimeout:                           c.UDPIdleTimeout,
+		UDPForwardingRedundancyWriteToMultiplier: udpForwardingRedundancyMultipliers.WriteTo,
 		UDPForwardingRedundancySendMessageMultiplier: udpForwardingRedundancyMultipliers.SendMessage,
+		UDPForwardingRedundancyExcludePort:           udpForwardingRedundancyExcludePort,
 		EventLogger:                                  n.EventLogger,
 		TrafficLogger:                                n.TrafficLogger,
 		MasqHandler:                                  Masq,

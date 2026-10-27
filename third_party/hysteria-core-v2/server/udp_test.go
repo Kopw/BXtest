@@ -19,8 +19,8 @@ import (
 func TestUDPSessionManager(t *testing.T) {
 	io := newMockUDPIO(t)
 	eventLogger := newMockUDPEventLogger(t)
-	sm := newUDPSessionManager(io, eventLogger, 2*time.Second, 1, 1)
-	io.EXPECT().LogReceive(mock.Anything).Return(nil).Maybe()
+	sm := newUDPSessionManager(io, eventLogger, 2*time.Second, 1, 1, nil)
+	io.EXPECT().LogReceive(mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	msgCh := make(chan *protocol.UDPMessage, 4)
 	io.EXPECT().ReceiveMessage().RunAndReturn(func() (*protocol.UDPMessage, error) {
@@ -198,8 +198,8 @@ func TestUDPSessionManager(t *testing.T) {
 func TestUDPSessionManagerHookHold(t *testing.T) {
 	io := newMockUDPIO(t)
 	eventLogger := newMockUDPEventLogger(t)
-	sm := newUDPSessionManager(io, eventLogger, 2*time.Second, 1, 1)
-	io.EXPECT().LogReceive(mock.Anything).Return(nil).Maybe()
+	sm := newUDPSessionManager(io, eventLogger, 2*time.Second, 1, 1, nil)
+	io.EXPECT().LogReceive(mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	msgCh := make(chan *protocol.UDPMessage, 4)
 	io.EXPECT().ReceiveMessage().RunAndReturn(func() (*protocol.UDPMessage, error) {
@@ -303,7 +303,7 @@ func TestUDPSessionEntryFeedRedundantWriteTo(t *testing.T) {
 func TestUDPSessionManagerClosesOnRedundantWriteError(t *testing.T) {
 	io := newMockUDPIO(t)
 	eventLogger := newMockUDPEventLogger(t)
-	sm := newUDPSessionManager(io, eventLogger, 30*time.Second, 3, 1)
+	sm := newUDPSessionManager(io, eventLogger, 30*time.Second, 3, 1, nil)
 
 	msg := &protocol.UDPMessage{
 		SessionID: 42,
@@ -479,7 +479,7 @@ func TestUDPSessionEntryReceiveLoopClosesOnRedundantSendError(t *testing.T) {
 	conn.EXPECT().ReadFrom(mock.Anything).RunAndReturn(func(b []byte) (int, string, error) {
 		return copy(b, reply), addr, nil
 	}).Once()
-	io.EXPECT().LogReceive(len(reply)).Return(nil).Once()
+	io.EXPECT().LogReceive(len(reply), 3).Return(nil).Once()
 	sendCount := 0
 	io.EXPECT().SendMessage(mock.Anything, mock.Anything).RunAndReturn(func([]byte, *protocol.UDPMessage) error {
 		sendCount++
@@ -505,8 +505,8 @@ func TestUDPIOImplLogsTrafficWithSplitRedundancyMultipliers(t *testing.T) {
 		SendMessageRedundancyMultiplier: 4,
 	}
 
-	assert.NoError(t, io.LogTransmit(5))
-	assert.NoError(t, io.LogReceive(7))
+	assert.NoError(t, io.LogTransmit(5, 3))
+	assert.NoError(t, io.LogReceive(7, 4))
 	assert.Equal(t, []trafficLogEntry{
 		{id: "user-1", tx: 15, rx: 0},
 		{id: "user-1", tx: 0, rx: 28},
@@ -520,8 +520,8 @@ func TestUDPIOImplLogsTrafficDefaultMultiplierAsOne(t *testing.T) {
 		TrafficLogger: logger,
 	}
 
-	assert.NoError(t, io.LogTransmit(5))
-	assert.NoError(t, io.LogReceive(7))
+	assert.NoError(t, io.LogTransmit(5, 0))
+	assert.NoError(t, io.LogReceive(7, 0))
 	assert.Equal(t, []trafficLogEntry{
 		{id: "user-1", tx: 5, rx: 0},
 		{id: "user-1", tx: 0, rx: 7},
@@ -548,3 +548,93 @@ func (l *recordingTrafficLogger) LogOnlineState(string, bool) {}
 func (l *recordingTrafficLogger) TraceStream(HyStream, *StreamStats) {}
 
 func (l *recordingTrafficLogger) UntraceStream(HyStream) {}
+
+func TestRedundancyMultiplierExcludePort(t *testing.T) {
+	exclude := func(port uint16) bool { return port == 53 || port == 3478 }
+	for _, tc := range []struct {
+		addr       string
+		multiplier int
+		exclude    func(uint16) bool
+		want       int
+	}{
+		{addr: "1.1.1.1:53", multiplier: 2, exclude: exclude, want: 1},
+		{addr: "stun.example.com:3478", multiplier: 2, exclude: exclude, want: 1},
+		{addr: "[2001:db8::1]:53", multiplier: 3, exclude: exclude, want: 1},
+		{addr: "game.example.com:3659", multiplier: 2, exclude: exclude, want: 2},
+		{addr: "1.1.1.1:53", multiplier: 2, exclude: nil, want: 2},
+		{addr: "1.1.1.1:53", multiplier: 1, exclude: exclude, want: 1},
+		{addr: "no-port", multiplier: 2, exclude: exclude, want: 2},
+	} {
+		assert.Equal(t, tc.want, redundancyMultiplier(tc.multiplier, tc.addr, tc.exclude), tc.addr)
+	}
+}
+
+func TestUDPSessionEntryExcludedPortWritesOnce(t *testing.T) {
+	msg := &protocol.UDPMessage{SessionID: 1, FragCount: 1, Addr: "1.1.1.1:53", Data: []byte("query")}
+	conn := newMockUDPConn(t)
+	conn.EXPECT().WriteTo(msg.Data, msg.Addr).Return(len(msg.Data), nil).Once()
+	entry := &udpSessionEntry{
+		D:                               &frag.Defragger{},
+		Last:                            utils.NewAtomicTime(time.Now()),
+		conn:                            conn,
+		aclCache:                        map[string]error{msg.Addr: nil},
+		writeToRedundancyMultiplier:     2,
+		sendMessageRedundancyMultiplier: 2,
+		redundancyExcludePort:           func(port uint16) bool { return port == 53 },
+	}
+
+	n, err := entry.Feed(msg)
+
+	assert.NoError(t, err)
+	assert.Equal(t, len(msg.Data), n)
+}
+
+func TestUDPSessionEntryReceiveLoopExcludedPortSendsOnce(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		from      string
+		wantSends int
+	}{
+		{name: "excluded", from: "1.1.1.1:53", wantSends: 1},
+		{name: "game", from: "203.0.113.7:3659", wantSends: 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			io := newMockUDPIO(t)
+			conn := newMockUDPConn(t)
+			readCh := make(chan []byte, 1)
+			errCh := make(chan error, 1)
+			entry := &udpSessionEntry{
+				ID:                              5,
+				Last:                            utils.NewAtomicTime(time.Now()),
+				IO:                              io,
+				conn:                            conn,
+				ExitFunc:                        func(err error) { errCh <- err },
+				writeToRedundancyMultiplier:     1,
+				sendMessageRedundancyMultiplier: 2,
+				redundancyExcludePort:           func(port uint16) bool { return port == 53 },
+			}
+			conn.EXPECT().ReadFrom(mock.Anything).RunAndReturn(func(b []byte) (int, string, error) {
+				bs := <-readCh
+				if bs == nil {
+					return 0, "", errors.New("closed")
+				}
+				return copy(b, bs), tc.from, nil
+			})
+			io.EXPECT().LogReceive(len("reply"), tc.wantSends).Return(nil).Once()
+			sent := make(chan struct{}, 4)
+			io.EXPECT().SendMessage(mock.Anything, mock.Anything).RunAndReturn(func([]byte, *protocol.UDPMessage) error {
+				sent <- struct{}{}
+				return nil
+			}).Times(tc.wantSends)
+			conn.EXPECT().Close().Return(nil).Once()
+
+			go entry.receiveLoop()
+			readCh <- []byte("reply")
+			for i := 0; i < tc.wantSends; i++ {
+				<-sent
+			}
+			close(readCh)
+			assert.Error(t, <-errCh)
+		})
+	}
+}

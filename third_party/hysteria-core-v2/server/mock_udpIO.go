@@ -123,17 +123,17 @@ func (_c *mockUDPIO_Hook_Call) RunAndReturn(run func([][]byte, *string) (bool, e
 	return _c
 }
 
-// LogReceive provides a mock function with given fields: size
-func (_m *mockUDPIO) LogReceive(size int) error {
-	ret := _m.Called(size)
+// LogReceive provides a mock function with given fields: size, multiplier
+func (_m *mockUDPIO) LogReceive(size int, multiplier int) error {
+	ret := _m.Called(size, multiplier)
 
 	if len(ret) == 0 {
 		panic("no return value specified for LogReceive")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int) error); ok {
-		r0 = rf(size)
+	if rf, ok := ret.Get(0).(func(int, int) error); ok {
+		r0 = rf(size, multiplier)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -148,13 +148,14 @@ type mockUDPIO_LogReceive_Call struct {
 
 // LogReceive is a helper method to define mock.On call
 //   - size int
-func (_e *mockUDPIO_Expecter) LogReceive(size interface{}) *mockUDPIO_LogReceive_Call {
-	return &mockUDPIO_LogReceive_Call{Call: _e.mock.On("LogReceive", size)}
+//   - multiplier int
+func (_e *mockUDPIO_Expecter) LogReceive(size interface{}, multiplier interface{}) *mockUDPIO_LogReceive_Call {
+	return &mockUDPIO_LogReceive_Call{Call: _e.mock.On("LogReceive", size, multiplier)}
 }
 
-func (_c *mockUDPIO_LogReceive_Call) Run(run func(size int)) *mockUDPIO_LogReceive_Call {
+func (_c *mockUDPIO_LogReceive_Call) Run(run func(size int, multiplier int)) *mockUDPIO_LogReceive_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(int))
+		run(args[0].(int), args[1].(int))
 	})
 	return _c
 }
@@ -164,22 +165,22 @@ func (_c *mockUDPIO_LogReceive_Call) Return(_a0 error) *mockUDPIO_LogReceive_Cal
 	return _c
 }
 
-func (_c *mockUDPIO_LogReceive_Call) RunAndReturn(run func(int) error) *mockUDPIO_LogReceive_Call {
+func (_c *mockUDPIO_LogReceive_Call) RunAndReturn(run func(int, int) error) *mockUDPIO_LogReceive_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// LogTransmit provides a mock function with given fields: size
-func (_m *mockUDPIO) LogTransmit(size int) error {
-	ret := _m.Called(size)
+// LogTransmit provides a mock function with given fields: size, multiplier
+func (_m *mockUDPIO) LogTransmit(size int, multiplier int) error {
+	ret := _m.Called(size, multiplier)
 
 	if len(ret) == 0 {
 		panic("no return value specified for LogTransmit")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int) error); ok {
-		r0 = rf(size)
+	if rf, ok := ret.Get(0).(func(int, int) error); ok {
+		r0 = rf(size, multiplier)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -194,13 +195,14 @@ type mockUDPIO_LogTransmit_Call struct {
 
 // LogTransmit is a helper method to define mock.On call
 //   - size int
-func (_e *mockUDPIO_Expecter) LogTransmit(size interface{}) *mockUDPIO_LogTransmit_Call {
-	return &mockUDPIO_LogTransmit_Call{Call: _e.mock.On("LogTransmit", size)}
+//   - multiplier int
+func (_e *mockUDPIO_Expecter) LogTransmit(size interface{}, multiplier interface{}) *mockUDPIO_LogTransmit_Call {
+	return &mockUDPIO_LogTransmit_Call{Call: _e.mock.On("LogTransmit", size, multiplier)}
 }
 
-func (_c *mockUDPIO_LogTransmit_Call) Run(run func(size int)) *mockUDPIO_LogTransmit_Call {
+func (_c *mockUDPIO_LogTransmit_Call) Run(run func(size int, multiplier int)) *mockUDPIO_LogTransmit_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(int))
+		run(args[0].(int), args[1].(int))
 	})
 	return _c
 }
@@ -210,7 +212,7 @@ func (_c *mockUDPIO_LogTransmit_Call) Return(_a0 error) *mockUDPIO_LogTransmit_C
 	return _c
 }
 
-func (_c *mockUDPIO_LogTransmit_Call) RunAndReturn(run func(int) error) *mockUDPIO_LogTransmit_Call {
+func (_c *mockUDPIO_LogTransmit_Call) RunAndReturn(run func(int, int) error) *mockUDPIO_LogTransmit_Call {
 	_c.Call.Return(run)
 	return _c
 }

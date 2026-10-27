@@ -3,6 +3,8 @@ package server
 import (
 	"errors"
 	"math/rand"
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -21,8 +23,8 @@ const (
 type udpIO interface {
 	ReceiveMessage() (*protocol.UDPMessage, error)
 	SendMessage([]byte, *protocol.UDPMessage) error
-	LogReceive(size int) error
-	LogTransmit(size int) error
+	LogReceive(size, multiplier int) error
+	LogTransmit(size, multiplier int) error
 	Hook(packets [][]byte, reqAddr *string) (bool, error)
 	UDP(reqAddr string) (UDPConn, error)
 	CheckUDP(reqAddr string) error
@@ -52,6 +54,7 @@ type udpSessionEntry struct {
 	aclCache                        map[string]error
 	writeToRedundancyMultiplier     int
 	sendMessageRedundancyMultiplier int
+	redundancyExcludePort           func(port uint16) bool
 }
 
 func newUDPSessionEntry(
@@ -60,6 +63,7 @@ func newUDPSessionEntry(
 	exitFunc func(error),
 	writeToRedundancyMultiplier int,
 	sendMessageRedundancyMultiplier int,
+	redundancyExcludePort func(port uint16) bool,
 ) (e *udpSessionEntry) {
 	e = &udpSessionEntry{
 		ID:   id,
@@ -72,6 +76,7 @@ func newUDPSessionEntry(
 
 		writeToRedundancyMultiplier:     writeToRedundancyMultiplier,
 		sendMessageRedundancyMultiplier: sendMessageRedundancyMultiplier,
+		redundancyExcludePort:           redundancyExcludePort,
 	}
 
 	return e
@@ -157,7 +162,23 @@ func (e *udpSessionEntry) write(dfMsg *protocol.UDPMessage) (int, error) {
 		return 0, err
 	}
 
-	return writeToWithRedundancy(e.conn, dfMsg.Data, addr, e.writeToRedundancyMultiplier)
+	return writeToWithRedundancy(e.conn, dfMsg.Data, addr, redundancyMultiplier(e.writeToRedundancyMultiplier, addr, e.redundancyExcludePort))
+}
+
+// redundancyMultiplier returns multiplier, or 1 if the port of addr is excluded from redundancy.
+func redundancyMultiplier(multiplier int, addr string, excludePort func(port uint16) bool) int {
+	if multiplier <= 1 || excludePort == nil {
+		return multiplier
+	}
+	_, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return multiplier
+	}
+	port, err := strconv.ParseUint(portStr, 10, 16)
+	if err == nil && excludePort(uint16(port)) {
+		return 1
+	}
+	return multiplier
 }
 
 func writeToWithRedundancy(conn UDPConn, data []byte, addr string, multiplier int) (int, error) {
@@ -243,6 +264,8 @@ func (e *udpSessionEntry) receiveLoop() {
 			return
 		}
 		e.Last.Set(time.Now())
+		// Decide by the real remote address, before it is replaced with the original one
+		sendMultiplier := redundancyMultiplier(e.sendMessageRedundancyMultiplier, rAddr, e.redundancyExcludePort)
 
 		if e.OriginalAddr != "" {
 			// Use the original address in the opposite direction,
@@ -259,12 +282,12 @@ func (e *udpSessionEntry) receiveLoop() {
 			Addr:      rAddr,
 			Data:      udpBuf[:udpN],
 		}
-		err = e.IO.LogReceive(len(msg.Data))
+		err = e.IO.LogReceive(len(msg.Data), sendMultiplier)
 		if err != nil {
 			e.CloseWithErr(err)
 			return
 		}
-		err = sendMessageAutoFragWithRedundancy(e.IO, msgBuf, msg, e.sendMessageRedundancyMultiplier)
+		err = sendMessageAutoFragWithRedundancy(e.IO, msgBuf, msg, sendMultiplier)
 		if err != nil {
 			e.CloseWithErr(err)
 			return
@@ -314,18 +337,20 @@ type udpSessionManager struct {
 	idleTimeout                     time.Duration
 	writeToRedundancyMultiplier     int
 	sendMessageRedundancyMultiplier int
+	redundancyExcludePort           func(port uint16) bool
 
 	mutex sync.RWMutex
 	m     map[uint32]*udpSessionEntry
 }
 
-func newUDPSessionManager(io udpIO, eventLogger udpEventLogger, idleTimeout time.Duration, writeToRedundancyMultiplier, sendMessageRedundancyMultiplier int) *udpSessionManager {
+func newUDPSessionManager(io udpIO, eventLogger udpEventLogger, idleTimeout time.Duration, writeToRedundancyMultiplier, sendMessageRedundancyMultiplier int, redundancyExcludePort func(port uint16) bool) *udpSessionManager {
 	return &udpSessionManager{
 		io:                              io,
 		eventLogger:                     eventLogger,
 		idleTimeout:                     idleTimeout,
 		writeToRedundancyMultiplier:     writeToRedundancyMultiplier,
 		sendMessageRedundancyMultiplier: sendMessageRedundancyMultiplier,
+		redundancyExcludePort:           redundancyExcludePort,
 		m:                               make(map[uint32]*udpSessionEntry),
 	}
 }
@@ -409,6 +434,7 @@ func (m *udpSessionManager) feed(msg *protocol.UDPMessage) {
 			exitFunc,
 			m.writeToRedundancyMultiplier,
 			m.sendMessageRedundancyMultiplier,
+			m.redundancyExcludePort,
 		)
 
 		// Insert the session into the map

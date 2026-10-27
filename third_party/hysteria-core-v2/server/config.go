@@ -39,10 +39,13 @@ type Config struct {
 	UDPIdleTimeout                               time.Duration
 	UDPForwardingRedundancyWriteToMultiplier     int
 	UDPForwardingRedundancySendMessageMultiplier int
-	Authenticator                                Authenticator
-	EventLogger                                  EventLogger
-	TrafficLogger                                TrafficLogger
-	MasqHandler                                  http.Handler
+	// UDPForwardingRedundancyExcludePort reports whether UDP packets to or from
+	// a remote port are sent only once, regardless of the multipliers above.
+	UDPForwardingRedundancyExcludePort func(port uint16) bool
+	Authenticator                      Authenticator
+	EventLogger                        EventLogger
+	TrafficLogger                      TrafficLogger
+	MasqHandler                        http.Handler
 }
 
 // fill fills the fields that are not set by the user with default values when possible,

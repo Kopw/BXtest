@@ -227,11 +227,13 @@ func (h *h3sHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 							Outbound:                        h.config.Outbound,
 							WriteToRedundancyMultiplier:     h.config.UDPForwardingRedundancyWriteToMultiplier,
 							SendMessageRedundancyMultiplier: h.config.UDPForwardingRedundancySendMessageMultiplier,
+							RedundancyExcludePort:           h.config.UDPForwardingRedundancyExcludePort,
 						},
 						&udpEventLoggerImpl{h.conn, id, h.config.EventLogger},
 						h.config.UDPIdleTimeout,
 						h.config.UDPForwardingRedundancyWriteToMultiplier,
 						h.config.UDPForwardingRedundancySendMessageMultiplier,
+						h.config.UDPForwardingRedundancyExcludePort,
 					)
 					h.udpSM = sm
 					go sm.Run()
@@ -375,6 +377,7 @@ type udpIOImpl struct {
 	Outbound                        Outbound
 	WriteToRedundancyMultiplier     int
 	SendMessageRedundancyMultiplier int
+	RedundancyExcludePort           func(port uint16) bool
 }
 
 func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
@@ -389,7 +392,8 @@ func (io *udpIOImpl) ReceiveMessage() (*protocol.UDPMessage, error) {
 			// Invalid message, this is fine - just wait for the next
 			continue
 		}
-		if err := io.LogTransmit(len(udpMsg.Data)); err != nil {
+		multiplier := redundancyMultiplier(io.WriteToRedundancyMultiplier, udpMsg.Addr, io.RedundancyExcludePort)
+		if err := io.LogTransmit(len(udpMsg.Data), multiplier); err != nil {
 			return nil, err
 		}
 		return udpMsg, nil
@@ -405,12 +409,12 @@ func (io *udpIOImpl) SendMessage(buf []byte, msg *protocol.UDPMessage) error {
 	return io.Conn.SendDatagram(buf[:msgN])
 }
 
-func (io *udpIOImpl) LogReceive(size int) error {
-	return io.logTraffic(0, uint64(size), io.SendMessageRedundancyMultiplier)
+func (io *udpIOImpl) LogReceive(size, multiplier int) error {
+	return io.logTraffic(0, uint64(size), multiplier)
 }
 
-func (io *udpIOImpl) LogTransmit(size int) error {
-	return io.logTraffic(uint64(size), 0, io.WriteToRedundancyMultiplier)
+func (io *udpIOImpl) LogTransmit(size, multiplier int) error {
+	return io.logTraffic(uint64(size), 0, multiplier)
 }
 
 func (io *udpIOImpl) logTraffic(tx, rx uint64, redundancyMultiplier int) error {

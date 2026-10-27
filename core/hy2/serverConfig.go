@@ -36,6 +36,8 @@ type serverConfigUDPForwardingRedundancy struct {
 	Multiplier            *int `mapstructure:"multiplier"`
 	WriteToMultiplier     *int `mapstructure:"writeToMultiplier"`
 	SendMessageMultiplier *int `mapstructure:"sendMessageMultiplier"`
+	// ExcludePorts lists remote UDP ports (port union, e.g. "53,123,3478-3481") whose packets are sent only once
+	ExcludePorts string `mapstructure:"excludePorts"`
 }
 
 type serverConfigObfsSalamander struct {
@@ -71,6 +73,7 @@ type serverConfigQUIC struct {
 	MaxIdleTimeout              time.Duration `mapstructure:"maxIdleTimeout"`
 	MaxIncomingStreams          int64         `mapstructure:"maxIncomingStreams"`
 	DisablePathMTUDiscovery     bool          `mapstructure:"disablePathMTUDiscovery"`
+	DisableStatelessReset       bool          `mapstructure:"disableStatelessReset"`
 }
 
 type serverConfigBandwidth struct {
