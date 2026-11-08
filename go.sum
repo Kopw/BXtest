@@ -101,6 +101,8 @@ github.com/Kopw/Xray-core v0.0.0-20261027090125-c048905313dd h1:Awy1HBI4Oua24zJa
 github.com/Kopw/Xray-core v0.0.0-20261027090125-c048905313dd/go.mod h1:yTB/iXzdo38F+nUYbjD5Eys88SP6N2zd0jyEmrBB37U=
 github.com/Kopw/sing-box_mod v0.0.0-20261027090119-ff8e6860f5d6 h1:T0fQTCIIHsKpok4dogCAku879umF0+LcGqKY9j/T4A4=
 github.com/Kopw/sing-box_mod v0.0.0-20261027090119-ff8e6860f5d6/go.mod h1:hez15ThcG5PcR3tmuHZYDH46LTO9WGj53UzrCQ39744=
+github.com/Kopw/sing-box_mod v0.0.0-20261108092720-dea9ea558006 h1:Ihdw4atrV5hUyhNRYeeMaZkeDF5cSdKG9uK9H6dQHoU=
+github.com/Kopw/sing-box_mod v0.0.0-20261108092720-dea9ea558006/go.mod h1:hez15ThcG5PcR3tmuHZYDH46LTO9WGj53UzrCQ39744=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/OpenDNS/vegadns2client v0.0.0-20180418235048-a3fa4a771d87 h1:xPMsUicZ3iosVPSIP7bW5EcGUzjiiMl1OYTe14y/R24=
 github.com/OpenDNS/vegadns2client v0.0.0-20180418235048-a3fa4a771d87/go.mod h1:iGLljf5n9GjT6kc0HBvyI1nOKnGQbNB66VzSNbK5iks=

@@ -381,7 +381,7 @@ require (
 	zombiezen.com/go/capnproto2 v2.18.2+incompatible // indirect
 )
 
-replace github.com/sagernet/sing-box v1.14.4 => github.com/Kopw/sing-box_mod v0.0.0-20261027090119-ff8e6860f5d6
+replace github.com/sagernet/sing-box v1.14.4 => github.com/Kopw/sing-box_mod v0.0.0-20261108092720-dea9ea558006
 
 replace github.com/apernet/hysteria/core/v2 => ./third_party/hysteria-core-v2
 

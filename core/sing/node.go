@@ -59,6 +59,17 @@ func getInboundOptions(tag string, info *panel.NodeInfo, c *conf.Options) (optio
 		Listen:      (*badoption.Addr)(&addr),
 		ListenPort:  uint16(info.Common.ServerPort),
 		TCPFastOpen: c.SingOptions.TCPFastOpen,
+		// Per-inbound sniffing: route.matchRule runs these before the rule list. Unlike the
+		// global "sniff" rule action, it can replace an IP destination with the sniffed domain
+		// (SniffOverrideDestination), so the server resolves the name itself (for example
+		// IPv4-only through the direct outbound's domain_resolver) instead of dialing the
+		// client's IPv6 address.
+		//goland:noinspection GoDeprecation
+		InboundOptions: option.InboundOptions{
+			SniffEnabled:             c.SingOptions.SniffEnabled,
+			SniffOverrideDestination: c.SingOptions.SniffOverrideDestination,
+			DomainStrategy:           c.SingOptions.DomainStrategy,
+		},
 	}
 	var multiplex *option.InboundMultiplexOptions
 	if c.SingOptions.Multiplex != nil {
